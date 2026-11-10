@@ -1,29 +1,468 @@
-import { Suspense, useMemo, useEffect } from 'react';
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Line } from '@react-three/drei';
-import * as THREE from 'three';
-import { coneWaterHeight } from '../math/solids';
-export type Topic = 'cone'|'area'|'volume';
-export interface SceneProps {topic:Topic;r:number;h:number;opacity:number;progress:number;bands:number;section:number;dimensions:boolean;compare:boolean;overlap:boolean;cut:boolean;cameraKey:number;}
-const blue='#4f78df',teal='#38b5a1',gold='#efa851';
-function Tag({at,children}:{at:[number,number,number];children:React.ReactNode}) {
- const label=String(children instanceof Array?children.join(''):children);
- const texture=useMemo(()=>{const canvas=document.createElement('canvas');const ctx=canvas.getContext('2d')!;ctx.font='500 30px sans-serif';canvas.width=Math.ceil(ctx.measureText(label).width)+32;canvas.height=60;ctx.fillStyle='#ffffffee';ctx.beginPath();ctx.roundRect(0,0,canvas.width,60,10);ctx.fill();ctx.font='500 30px sans-serif';ctx.fillStyle='#53677d';ctx.textBaseline='middle';ctx.fillText(label,16,30);return new THREE.CanvasTexture(canvas);},[label]);
- useEffect(()=>()=>texture.dispose(),[texture]);
- return <sprite position={at} scale={[texture.image.width/140,60/140,1]}><spriteMaterial map={texture} depthTest={false} transparent/></sprite>;
+import { Suspense, useMemo, useEffect } from "react";
+import { Canvas, useThree } from "@react-three/fiber";
+import { OrbitControls, Line } from "@react-three/drei";
+import * as THREE from "three";
+import { coneWaterHeight } from "../math/solids";
+export type Topic = "cone" | "area" | "volume";
+export interface SceneProps {
+  topic: Topic;
+  r: number;
+  h: number;
+  opacity: number;
+  progress: number;
+  bands: number;
+  section: number;
+  dimensions: boolean;
+  compare: boolean;
+  overlap: boolean;
+  cut: boolean;
+  cameraKey: number;
 }
-function Disk({radius,y,color,ring=0}:{radius:number;y:number;color:string;ring?:number}) {return <mesh position={[0,y,0]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[ring,Math.max(radius,0.0001),80]}/><meshBasicMaterial color={color} side={THREE.DoubleSide} transparent opacity={0.8}/></mesh>}
-function Cone({r,h,opacity,color=blue,inverted=false}:{r:number;h:number;opacity:number;color?:string;inverted?:boolean}) {return <mesh position={[0,h/2,0]} rotation={inverted?[Math.PI,0,0]:[0,0,0]}><coneGeometry args={[r,h,72]}/><meshStandardMaterial color={color} transparent opacity={opacity} roughness={0.3} side={THREE.DoubleSide} depthWrite={false}/></mesh>}
-function Cylinder({r,h,opacity}:{r:number;h:number;opacity:number}) {return <mesh position={[0,h/2,0]}><cylinderGeometry args={[r,r,h,72,1,true]}/><meshStandardMaterial color={teal} transparent opacity={opacity} side={THREE.DoubleSide} depthWrite={false}/></mesh>}
-function ConeDemo(p:SceneProps){const h=p.h; const shift=p.overlap?0:p.r*1.7; const cycle=Math.min(2,Math.floor(p.progress*3));const fraction=p.progress>=1?0:1-(p.progress*3-cycle);const wh=coneWaterHeight(h,fraction);return <>
- <group position={[-shift,0,0]}><Cone r={p.r} h={h} opacity={p.opacity}/>{wh>0.001&&<mesh position={[0,wh/2,0]}><cylinderGeometry args={[p.r*(1-wh/h),p.r,wh,72]}/><meshStandardMaterial color={blue} transparent opacity={0.65}/></mesh>}{p.cut&&<Disk y={h/2} radius={p.r/2} color={gold}/>}<Tag at={[0,-0.35,0]}>원뿔</Tag>{p.dimensions&&<><Line points={[[0,0,0],[0,h,0]]} color="#48536b" dashed dashSize={0.12} gapSize={0.08}/><Tag at={[0,h/2,0]}>h = {h}</Tag><Line points={[[0,0,0],[p.r,0,0]]} color="#48536b"/><Tag at={[p.r/2,0,0]}>r = {p.r}</Tag></>}</group>
- {p.compare&&<group position={[shift,0,0]}><Cylinder r={p.r} h={h} opacity={p.opacity}/>{p.cut&&<Disk y={h/2} radius={p.r} color={gold}/>}{p.progress>0&&<mesh position={[0,h*p.progress/2,0]}><cylinderGeometry args={[p.r,p.r,h*p.progress,72]}/><meshStandardMaterial color={teal} transparent opacity={0.68}/></mesh>}{[1,2].map(n=><Line key={n} points={Array.from({length:81},(_,i)=>[p.r*Math.cos(i*Math.PI/40),h*n/3,p.r*Math.sin(i*Math.PI/40)] as [number,number,number])} color="#6a9f9a" dashed dashSize={0.12} gapSize={0.08}/>)}<Tag at={[0,-0.35,0]}>원기둥 · {Math.round(p.progress*300)/100}회</Tag></group>}
- </>}
-function AreaDemo(p:SceneProps){const r=p.r; const rect=p.progress>0.12;return <><group position={[-r*1.8,r,0]}>{Array.from({length:p.bands},(_,i)=>{const y1=1-2*i/p.bands,y2=1-2*(i+1)/p.bands;return <mesh key={i}><sphereGeometry args={[r,64,4,0,Math.PI*2,Math.acos(y1),Math.acos(y2)-Math.acos(y1)]}/><meshStandardMaterial color={i%2?blue:'#94b3fa'} transparent opacity={p.opacity+0.25} side={THREE.DoubleSide}/></mesh>})}{p.cut&&<Disk y={0} radius={r} color={gold}/>}<Tag at={[0,-r-0.35,0]}>같은 수직 높이의 구면 띠</Tag>{p.dimensions&&<><Line points={[[0,0,0],[r,0,0]]} color="#34415e"/><Tag at={[r/2,0,0]}>R = {r}</Tag></>}</group>
- {rect&&<group position={[r*1.8,r,0]}>{Array.from({length:p.bands},(_,i)=><mesh key={i} position={[0,r-(i+0.5)*2*r/p.bands,0]}><planeGeometry args={[Math.PI*r*2,2*r/p.bands*0.93]}/><meshStandardMaterial color={i%2?blue:'#94b3fa'} side={THREE.DoubleSide} transparent opacity={Math.min(1,p.progress*3)}/></mesh>)}<Tag at={[0,r+0.3,0]}>가로 2πR · 세로 2R</Tag><Tag at={[0,-r-0.35,0]}>각 띠와 넓이가 같은 직사각형</Tag></group>}
- {p.compare&&p.progress>0.65&&<group position={[0,-r*0.9,0]}>{[0,1,2,3].map(i=><mesh key={i} position={[(i-1.5)*2.2*r,0,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[r,64]}/><meshStandardMaterial color={gold} side={THREE.DoubleSide}/></mesh>)}<Tag at={[0,0,r+0.3]}>반지름 R인 원 4개와 같은 넓이</Tag></group>}</>}
-function VolumeDemo(p:SceneProps){const r=p.r,z=r*p.section;const joined=p.progress>0.76; const offsets=[-3*r,0,3*r];return <>{offsets.map((x,i)=><group key={i} position={[x,0,0]}>{i===0?<><mesh><sphereGeometry args={[r,64,32,0,2*Math.PI,0,Math.PI/2]}/><meshStandardMaterial color={blue} transparent opacity={p.opacity} side={THREE.DoubleSide} depthWrite={false}/></mesh>{joined&&p.compare&&<group position={[0,-r,0]}><Cylinder r={r} h={2*r} opacity={0.13}/><Tag at={[0,-0.4,0]}>높이 2R인 원기둥과 비교</Tag></group>}{joined&&<mesh><sphereGeometry args={[r,64,32,0,2*Math.PI,Math.PI/2,Math.PI/2]}/><meshStandardMaterial color={blue} transparent opacity={p.opacity}/></mesh>}</>:i===1?<Cylinder r={r} h={r} opacity={p.opacity}/>:<Cone r={r} h={r} opacity={p.opacity} color={gold} inverted/>}
- {p.cut&&<Disk y={z} radius={i===0?Math.sqrt(Math.max(0,r*r-z*z)):i===1?r:z} color={i===0?blue:i===1?teal:gold}/>}
- {i===1&&p.cut&&p.compare&&<Disk y={z+0.006} radius={r} ring={z} color={blue}/>}
- <Tag at={[0,-0.4,0]}>{i===0?(joined?'반구 두 개 → 구':'반구'):i===1?'원기둥':'원뿔 · 꼭짓점 z = 0'}</Tag>{p.dimensions&&<Tag at={[0,r+0.35,0]}>{i===0?`R = ${r}`:`높이 R = ${r}`}</Tag>}</group>)}</>}
-export default function SolidScene(p:SceneProps){const extent=useMemo(()=>p.topic==='area'?p.r*5:p.topic==='volume'?p.r*5:Math.max(p.r*4,p.h*1.4),[p.topic,p.r,p.h]);return <Canvas dpr={[1,1.6]} camera={{position:[extent*0.95,extent*0.65,extent*1.4],fov:40,near:0.01,far:300}} gl={{antialias:true,preserveDrawingBuffer:false}}><color attach="background" args={['#f7f8fc']}/><ambientLight intensity={1.5}/><directionalLight position={[6,10,8]} intensity={2}/><Suspense fallback={null}><group position={[0,-p.r*0.6,0]}>{p.topic==='cone'?<ConeDemo {...p}/>:p.topic==='area'?<AreaDemo {...p}/>:<VolumeDemo {...p}/>}</group><gridHelper args={[50,50,'#e1e5ef','#e9edf5']} position={[0,-p.r*0.6-0.02,0]}/><OrbitControls key={`${p.topic}-${p.cameraKey}`} makeDefault target={[0,p.topic==='cone'?p.h*0.2:0,0]} minDistance={1} maxDistance={60} enableDamping/></Suspense></Canvas>}
+const blue = "#4f78df",
+  teal = "#38b5a1",
+  gold = "#efa851";
+function Tag({
+  at,
+  children,
+}: {
+  at: [number, number, number];
+  children: React.ReactNode;
+}) {
+  const label = String(
+    children instanceof Array ? children.join("") : children,
+  );
+  const texture = useMemo(() => {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d")!;
+    ctx.font = "500 30px sans-serif";
+    canvas.width = Math.ceil(ctx.measureText(label).width) + 32;
+    canvas.height = 60;
+    ctx.fillStyle = "#ffffffee";
+    ctx.beginPath();
+    ctx.roundRect(0, 0, canvas.width, 60, 10);
+    ctx.fill();
+    ctx.font = "500 30px sans-serif";
+    ctx.fillStyle = "#53677d";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, 16, 30);
+    return new THREE.CanvasTexture(canvas);
+  }, [label]);
+  useEffect(() => () => texture.dispose(), [texture]);
+  return (
+    <sprite
+      renderOrder={1000}
+      position={at}
+      scale={[texture.image.width / 100, 60 / 100, 1]}
+    >
+      <spriteMaterial
+        map={texture}
+        depthTest={false}
+        depthWrite={false}
+        transparent
+      />
+    </sprite>
+  );
+}
+function Disk({
+  radius,
+  y,
+  color,
+  ring = 0,
+}: {
+  radius: number;
+  y: number;
+  color: string;
+  ring?: number;
+}) {
+  return (
+    <mesh position={[0, y, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <ringGeometry args={[ring, Math.max(radius, 0.0001), 80]} />
+      <meshBasicMaterial
+        color={color}
+        side={THREE.DoubleSide}
+        transparent
+        opacity={0.8}
+      />
+    </mesh>
+  );
+}
+function Cone({
+  r,
+  h,
+  opacity,
+  color = blue,
+  inverted = false,
+}: {
+  r: number;
+  h: number;
+  opacity: number;
+  color?: string;
+  inverted?: boolean;
+}) {
+  return (
+    <mesh
+      position={[0, h / 2, 0]}
+      rotation={inverted ? [Math.PI, 0, 0] : [0, 0, 0]}
+    >
+      <coneGeometry args={[r, h, 72]} />
+      <meshStandardMaterial
+        color={color}
+        transparent
+        opacity={opacity}
+        roughness={0.3}
+        side={THREE.DoubleSide}
+        depthWrite={false}
+      />
+    </mesh>
+  );
+}
+function Cylinder({
+  r,
+  h,
+  opacity,
+}: {
+  r: number;
+  h: number;
+  opacity: number;
+}) {
+  return (
+    <mesh position={[0, h / 2, 0]}>
+      <cylinderGeometry args={[r, r, h, 72, 1, true]} />
+      <meshStandardMaterial
+        color={teal}
+        transparent
+        opacity={opacity}
+        side={THREE.DoubleSide}
+        depthWrite={false}
+      />
+    </mesh>
+  );
+}
+function ConeDemo(p: SceneProps) {
+  const h = p.h;
+  const shift = p.overlap ? 0 : p.r * 1.7;
+  const cycle = Math.min(2, Math.floor(p.progress * 3));
+  const fraction = p.progress >= 1 ? 0 : 1 - (p.progress * 3 - cycle);
+  const wh = coneWaterHeight(h, fraction);
+  return (
+    <>
+      <group position={[-shift, 0, 0]}>
+        <Cone r={p.r} h={h} opacity={p.opacity} />
+        {wh > 0.001 && (
+          <mesh position={[0, wh / 2, 0]}>
+            <cylinderGeometry args={[p.r * (1 - wh / h), p.r, wh, 72]} />
+            <meshStandardMaterial color={blue} transparent opacity={0.65} />
+          </mesh>
+        )}
+        {p.cut && <Disk y={h / 2} radius={p.r / 2} color={gold} />}
+        <Tag at={[0, -0.35, 0]}>원뿔</Tag>
+        {p.dimensions && (
+          <>
+            <Line
+              points={[
+                [0, 0, 0],
+                [0, h, 0],
+              ]}
+              color="#48536b"
+              dashed
+              dashSize={0.12}
+              gapSize={0.08}
+            />
+            <Tag at={[0, h / 2, 0]}>h = {h}</Tag>
+            <Line
+              points={[
+                [0, 0, 0],
+                [p.r, 0, 0],
+              ]}
+              color="#48536b"
+            />
+            <Tag at={[p.r / 2, 0, 0]}>r = {p.r}</Tag>
+          </>
+        )}
+      </group>
+      {p.compare && (
+        <group position={[shift, 0, 0]}>
+          <Cylinder r={p.r} h={h} opacity={p.opacity} />
+          {p.cut && <Disk y={h / 2} radius={p.r} color={gold} />}
+          {p.progress > 0 && (
+            <mesh position={[0, (h * p.progress) / 2, 0]}>
+              <cylinderGeometry args={[p.r, p.r, h * p.progress, 72]} />
+              <meshStandardMaterial color={teal} transparent opacity={0.68} />
+            </mesh>
+          )}
+          {[1, 2].map((n) => (
+            <Line
+              key={n}
+              points={Array.from(
+                { length: 81 },
+                (_, i) =>
+                  [
+                    p.r * Math.cos((i * Math.PI) / 40),
+                    (h * n) / 3,
+                    p.r * Math.sin((i * Math.PI) / 40),
+                  ] as [number, number, number],
+              )}
+              color="#6a9f9a"
+              dashed
+              dashSize={0.12}
+              gapSize={0.08}
+            />
+          ))}
+          <Tag at={[0, -0.35, 0]}>
+            원기둥 · {Math.round(p.progress * 300) / 100}회
+          </Tag>
+        </group>
+      )}
+    </>
+  );
+}
+function AreaDemo(p: SceneProps) {
+  const r = p.r;
+  const rect = p.progress > 0.12;
+  return (
+    <>
+      <group position={[-r * 4, r, 0]}>
+        {Array.from({ length: p.bands }, (_, i) => {
+          const y1 = 1 - (2 * i) / p.bands,
+            y2 = 1 - (2 * (i + 1)) / p.bands;
+          return (
+            <mesh key={i}>
+              <sphereGeometry
+                args={[
+                  r,
+                  64,
+                  4,
+                  0,
+                  Math.PI * 2,
+                  Math.acos(y1),
+                  Math.acos(y2) - Math.acos(y1),
+                ]}
+              />
+              <meshStandardMaterial
+                color={i % 2 ? blue : "#94b3fa"}
+                transparent
+                opacity={p.opacity + 0.25}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+          );
+        })}
+        {p.cut && <Disk y={0} radius={r} color={gold} />}
+        <Tag at={[0, -r - 0.35, 0]}>같은 수직 높이의 구면 띠</Tag>
+        {p.dimensions && (
+          <>
+            <Line
+              points={[
+                [0, 0, 0],
+                [r, 0, 0],
+              ]}
+              color="#34415e"
+            />
+            <Tag at={[r / 2, 0, 0]}>R = {r}</Tag>
+          </>
+        )}
+      </group>
+      {rect && (
+        <group position={[r, r, 0]}>
+          {Array.from({ length: p.bands }, (_, i) => (
+            <mesh key={i} position={[0, r - ((i + 0.5) * 2 * r) / p.bands, 0]}>
+              <planeGeometry args={[Math.PI * r * 2, (2 * r) / p.bands]} />
+              <meshStandardMaterial
+                color={i % 2 ? blue : "#94b3fa"}
+                side={THREE.DoubleSide}
+                transparent
+                opacity={Math.min(1, p.progress * 3)}
+              />
+            </mesh>
+          ))}
+          <Tag at={[0, r + 0.3, 0]}>가로 2πR · 세로 2R</Tag>
+          <Tag at={[0, -r - 0.35, 0]}>각 띠와 넓이가 같은 직사각형</Tag>
+        </group>
+      )}
+      {p.compare && p.progress > 0.65 && (
+        <group position={[0, -r * 1.3, 0]}>
+          {[0, 1, 2, 3].map((i) => (
+            <mesh
+              key={i}
+              position={[(i - 1.5) * 2.2 * r, 0, 0]}
+              rotation={[0, 0, 0]}
+            >
+              <circleGeometry args={[r, 64]} />
+              <meshStandardMaterial color={gold} side={THREE.DoubleSide} />
+            </mesh>
+          ))}
+          <Tag at={[0, -r - 0.3, 0]}>반지름 R인 원 4개와 같은 넓이</Tag>
+        </group>
+      )}
+    </>
+  );
+}
+function VolumeDemo(p: SceneProps) {
+  const r = p.r,
+    z = r * p.section;
+  const joined = p.progress > 0.76;
+  const offsets = [-3 * r, 0, 3 * r];
+  return (
+    <>
+      {offsets.map((x, i) => (
+        <group key={i} position={[x, 0, 0]}>
+          {i === 0 ? (
+            <>
+              <mesh>
+                <sphereGeometry
+                  args={[r, 64, 32, 0, 2 * Math.PI, 0, Math.PI / 2]}
+                />
+                <meshStandardMaterial
+                  color={blue}
+                  transparent
+                  opacity={p.opacity}
+                  side={THREE.DoubleSide}
+                  depthWrite={false}
+                />
+              </mesh>
+              {joined && p.compare && (
+                <group position={[0, -r, 0]}>
+                  <Cylinder r={r} h={2 * r} opacity={0.13} />
+                  <Tag at={[0, -0.4, 0]}>높이 2R인 원기둥과 비교</Tag>
+                </group>
+              )}
+              {joined && (
+                <mesh>
+                  <sphereGeometry
+                    args={[r, 64, 32, 0, 2 * Math.PI, Math.PI / 2, Math.PI / 2]}
+                  />
+                  <meshStandardMaterial
+                    color={blue}
+                    transparent
+                    opacity={p.opacity}
+                  />
+                </mesh>
+              )}
+            </>
+          ) : i === 1 ? (
+            <Cylinder r={r} h={r} opacity={p.opacity} />
+          ) : (
+            <Cone r={r} h={r} opacity={p.opacity} color={gold} inverted />
+          )}
+          {p.cut && (
+            <Disk
+              y={z}
+              radius={
+                i === 0
+                  ? Math.sqrt(Math.max(0, r * r - z * z))
+                  : i === 1
+                    ? r
+                    : z
+              }
+              color={i === 0 ? blue : i === 1 ? teal : gold}
+            />
+          )}
+          {i === 1 && p.cut && p.compare && (
+            <Disk y={z + 0.006} radius={r} ring={z} color={blue} />
+          )}
+          <Tag at={[0, -0.4, 0]}>
+            {i === 0
+              ? joined
+                ? "반구 두 개 → 구"
+                : "반구"
+              : i === 1
+                ? "원기둥"
+                : "원뿔 · 꼭짓점 z = 0"}
+          </Tag>
+          {p.dimensions && (
+            <Tag at={[0, r + 0.35, 0]}>
+              {i === 0 ? `R = ${r}` : `높이 R = ${r}`}
+            </Tag>
+          )}
+        </group>
+      ))}
+    </>
+  );
+}
+function Framing({
+  topic,
+  r,
+  h,
+  cameraKey,
+}: {
+  topic: Topic;
+  r: number;
+  h: number;
+  cameraKey: number;
+}) {
+  const { camera, size } = useThree();
+  useEffect(() => {
+    if (topic === "area") {
+      const distance = r * Math.max(8, 14 / (size.width / size.height));
+      camera.position.set(0, r * 1.5, distance);
+      camera.lookAt(0, -r * 0.5, 0);
+    } else {
+      const e = topic === "volume" ? r * 5 : Math.max(r * 4, h * 1.4);
+      camera.position.set(e * 0.95, e * 0.65, e * 1.4);
+      camera.lookAt(0, topic === "cone" ? h * 0.2 : 0, 0);
+    }
+    camera.updateProjectionMatrix();
+  }, [topic, r, h, cameraKey, camera, size.width, size.height]);
+  return null;
+}
+export default function SolidScene(p: SceneProps) {
+  const extent = useMemo(
+    () =>
+      p.topic === "area"
+        ? p.r * 5
+        : p.topic === "volume"
+          ? p.r * 5
+          : Math.max(p.r * 4, p.h * 1.4),
+    [p.topic, p.r, p.h],
+  );
+  return (
+    <Canvas
+      dpr={[1, 1.6]}
+      camera={{
+        position: [extent * 0.95, extent * 0.65, extent * 1.4],
+        fov: 40,
+        near: 0.01,
+        far: 300,
+      }}
+      gl={{ antialias: true, preserveDrawingBuffer: false }}
+    >
+      <Framing topic={p.topic} r={p.r} h={p.h} cameraKey={p.cameraKey} />
+      <color attach="background" args={["#f7f8fc"]} />
+      <ambientLight intensity={1.5} />
+      <directionalLight position={[6, 10, 8]} intensity={2} />
+      <Suspense fallback={null}>
+        <group position={[0, -p.r * 0.6, 0]}>
+          {p.topic === "cone" ? (
+            <ConeDemo {...p} />
+          ) : p.topic === "area" ? (
+            <AreaDemo {...p} />
+          ) : (
+            <VolumeDemo {...p} />
+          )}
+        </group>
+        {p.topic !== "area" && (
+          <gridHelper
+            args={[50, 50, "#e1e5ef", "#e9edf5"]}
+            position={[0, -p.r * 0.6 - 0.02, 0]}
+          />
+        )}
+        <OrbitControls
+          key={`${p.topic}-${p.cameraKey}`}
+          makeDefault
+          target={[
+            0,
+            p.topic === "cone"
+              ? p.h * 0.2
+              : p.topic === "area"
+                ? -p.r * 0.5
+                : 0,
+            0,
+          ]}
+          minDistance={1}
+          maxDistance={60}
+          enableDamping
+        />
+      </Suspense>
+    </Canvas>
+  );
+}
