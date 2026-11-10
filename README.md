@@ -1,0 +1,73 @@
+# 도형 연구실 · Math Solid Visualizer
+
+중학교 1학년 교사의 수업 시연을 위한 React + TypeScript + Three.js 앱입니다. 별도 백엔드, 로그인, 유료 API가 없습니다.
+
+## 실행
+
+Node.js 24와 npm 사용:
+
+```sh
+npm ci
+npm run dev
+# http://localhost:5173/math-solid-visualizer/
+npm test
+npm run build
+npm run preview
+```
+
+## 수업 흐름
+
+상단에서 원뿔의 부피 / 구의 겉넓이 / 구의 부피를 선택합니다. 공식과 계산 결과는 기본적으로 숨겨집니다. 탐구 설정에서 공개하세요. 단계 버튼, 진행도, 재생/일시정지, 속도로 시연하며 언제든 시점을 회전할 수 있습니다.
+
+- **원뿔:** 같은 반지름·높이인 원뿔과 원기둥. 세 번 옮기면 가득 찹니다. 원기둥 수위는 체적에 선형 비례하고 원뿔 잔량 수위는 역삼차식으로 계산합니다. 매 회 원뿔을 다시 채운 상태로 시작하는 체적 모형이며 유체 물리나 엄밀한 증명은 아닙니다.
+- **구의 겉넓이:** 동일한 수직 높이의 구면 띠를 2πRΔh 넓이의 직사각형 띠와 대응합니다. 가로 2πR, 세로 2R인 직사각형과 원 4개의 넓이를 비교합니다. 실제 구면 전개도가 아닙니다. 원판 비교는 마지막 단계에 표시됩니다.
+- **구의 부피:** 장면의 수직축(y)을 수학적 높이 z로 사용합니다. 원뿔 꼭짓점 z=0, 밑면 z=R입니다. 반구 단면 π(R²−z²), 원기둥 πR², 원뿔 πz²를 같은 높이에서 보여줍니다. 마지막 단계는 반구 두 개를 합칩니다. 공식 표시에서 카발리에리 원리를 소개합니다.
+
+## 판서와 태블릿
+
+S Pen 및 마우스가 기본 입력입니다. 손 모양 버튼으로 손가락 필기를 허용할 수 있습니다. Pointer Events로 입력 종류와 압력을 처리합니다. 지우개, 색상, 굵기, 실행 취소/다시 실행, 전체 삭제, PNG 저장을 제공합니다.
+
+획 데이터는 `localStorage`의 `solid-lab-drawing-v1`에만 저장됩니다. 서버에 전송하지 않습니다. 단원 전환, 확대, 회전, 화면 크기 변경 및 새로고침에도 보존합니다. 논리 좌표계 1000×1200을 비율 유지하여 화면 중앙에 맞춥니다. 브라우저 데이터 삭제나 시크릿 모드는 보존을 보장하지 않으므로 중요한 판서는 PNG로 저장하세요.
+
+3D 한 손가락/S Pen 드래그는 회전, 두 손가락은 핀치 줌과 이동입니다. 웹 전체 화면 및 각 영역 확대, 집중 모드를 제공합니다. 작은 화면은 세로 배치로 전환합니다. 확대 후에도 상태를 유지합니다. WebGL이 필요하며 실패 시 복구 안내가 표시됩니다.
+
+## 구조
+
+- `src/math/solids.ts`: 렌더링과 독립적인 수학 계산, 유효 범위 검증
+- `src/math/solids.test.ts`: 체적비, 물 높이, 띠 면적 합, 단면 관계와 크기 변화 테스트
+- `src/scenes/SolidScene.tsx`: 세 단원 장면 및 독립적인 OrbitControls 카메라
+- `src/drawing/Board.tsx`: 좌표 기반 획, Pointer Events, 저장 및 내보내기
+- `src/App.tsx`: 단원·공통 애니메이션·교사 조작
+- `src/styles/app.css`: 반응형 UI
+- `.github/workflows/deploy.yml`: PR 테스트/빌드, main 반영 후 Pages 배포
+
+## GitHub와 배포
+
+저장소: https://github.com/zzsnorlaxzz/math-solid-visualizer
+
+배포 대상 주소(배포 성공 후 사용 가능): https://zzsnorlaxzz.github.io/math-solid-visualizer/
+
+저장소 **Settings → Pages → Build and deployment → Source → GitHub Actions**를 선택합니다. 조직 정책으로 제한되어 있다면 **Settings → Actions → General**에서 Actions 사용 및 Pages 배포 권한을 확인합니다. 워크플로는 최소 범위의 `contents: read`, 배포 작업에 `pages: write`, `id-token: write`를 요청합니다. github-pages 환경 보호 규칙이 있으면 배포를 승인하세요.
+
+```sh
+git add .
+git commit -m "Update geometry lesson"
+git push origin main
+```
+
+이후 **Actions → Test and deploy to GitHub Pages**에서 성공을 확인하고 배포 주소에서 점검합니다. 테스트 실패 시 배포 작업은 실행되지 않습니다. Vite base는 `/math-solid-visualizer/`이며 클라이언트 경로 라우팅이 없어 새로고침 시 별도의 SPA fallback이 필요 없습니다. GitHub Pages가 HTTPS를 제공합니다. 주소나 저장소명이 바뀌면 `vite.config.ts`의 base도 수정하세요. 큰 후속 변경은 기능 브랜치와 PR을 사용하세요.
+
+인증이 필요한 로컬 PC에서는 `gh auth login`을 사용합니다. 토큰을 코드나 README에 기록하지 마세요. 클라우드의 Git 프록시 인증과 GitHub API/CLI 인증은 별개입니다. 배포 상태가 확인되지 않았다면 배포 완료로 간주하지 마세요.
+
+## 실제 Galaxy Tab 수동 검증
+
+실제 기기에서는 다음을 확인해야 합니다:
+
+- 가로 방향 Chrome에서 한 손가락 회전, 두 손가락 확대/이동과 S Pen 회전
+- S Pen 압력 및 손바닥 접촉 차단, 손가락 필기 허용/차단
+- 펜/지우개 전환, 획 끝/캔슬 처리, 되돌리기, PNG 다운로드
+- 화면 회전과 양 영역 확대 후 판서·카메라·진행도 유지
+- 전체 화면, 브라우저 툴바 변화, 프로젝터 미러링과 프레임 속도
+- 새로고침 복구 및 저장 공간 부족 시 안내
+
+모델별 팜 리젝션과 다운로드 UI는 Android/Chrome 버전에 따라 다릅니다. 데스크톱 자동 검증은 실제 S Pen 하드웨어 검증을 대신하지 않습니다.
