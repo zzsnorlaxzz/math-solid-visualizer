@@ -937,3 +937,33 @@ input[type="range"] {
 .playback .icon-button {
   min-width: 44px;
 }
+
+/* Projector-friendly teacher demonstration. Board remains available via expand. */
+.expand-scene .scene-area { min-height: 560px; }
+.expand-scene .scene-canvas { inset: 105px 0 50px; }
+.expand-scene .lesson-prompt h1 { font-size: clamp(20px, 2.1vw, 30px); }
+.expand-scene .lesson-prompt p { font-size: 14px; color: #60718a; }
+.expand-scene .lesson-kicker { font-size: 10px; }
+.demonstration-caption {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px;
+  padding: 12px 18px; margin-bottom: 16px; border-radius: 10px;
+  background: #edf3ff; border-left: 4px solid #4775d8;
+}
+.demonstration-caption > span { color: #536c93; font-size: 12px; }
+.demonstration-caption strong { font-size: clamp(14px, 1.4vw, 19px); color: #23487e; }
+.expand-scene .steps button { font-size: 13px; gap: 8px; padding-inline: 12px; }
+.expand-scene .steps button > span { width: 30px; height: 30px; font-size: 12px; }
+.expand-scene .steps:before { top: 15px; }
+.expand-scene .discovery-note { font-size: 12px; color: #62768d; }
+.expand-scene .play-button { min-width: 130px; font-size: 15px; }
+.expand-scene .fill-button { font-size: 14px; }
+.expand-scene .scene-hint { font-size: 11px; color: #657995; }
+@media (max-width: 760px) {
+  .expand-scene .scene-area { min-height: 510px; }
+  .expand-scene .scene-canvas { inset: 125px 0 45px; }
+  .expand-scene .lesson-prompt { right: 16px; }
+  .expand-scene .lesson-prompt p { font-size: 12px; }
+  .expand-scene .steps button { font-size: 10px; padding-inline: 2px; }
+  .expand-scene .play-button { min-width: 96px; font-size: 12px; }
+  .demonstration-caption { padding: 10px; }
+}

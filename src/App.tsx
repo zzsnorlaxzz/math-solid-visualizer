@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Box,
   ChevronRight,
@@ -19,6 +19,7 @@ import {
 import SolidScene, { type Topic } from "./scenes/SolidScene";
 import Board from "./drawing/Board";
 import { coneVolume, sphereArea, sphereVolume, sections } from "./math/solids";
+import { pourState, sectionAt, smooth } from "./math/animation";
 const topics: {
   id: Topic;
   name: string;
@@ -133,13 +134,16 @@ export default function App() {
     [compare, setCompare] = useState(true),
     [overlap, setOverlap] = useState(false),
     [cut, setCut] = useState(false),
-    [settings, setSettings] = useState(true),
+    [settings, setSettings] = useState(false),
     [cameraKey, setCameraKey] = useState(0),
-    [expanded, setExpanded] = useState<"scene" | "board" | null>(null),
+    [expanded, setExpanded] = useState<"scene" | "board" | null>("scene"),
     [focus, setFocus] = useState(false),
     [help, setHelp] = useState(false),
     [fullscreenError, setFullscreenError] = useState("");
   const current = topics.find((t) => t.id === topic)!;
+  const transition = useRef(0);
+  const [moving, setMoving] = useState(false);
+  useEffect(() => () => cancelAnimationFrame(transition.current), []);
   const stage = Math.min(3, Math.floor(progress * 3 + 0.001));
   useEffect(() => {
     if (!playing) return;
@@ -149,7 +153,7 @@ export default function App() {
       const dt = Math.min((now - prev) / 1000, 0.1);
       prev = now;
       setProgress((p) => {
-        const next = Math.min(1, p + (dt * speed) / 12);
+        const next = Math.min(1, p + (dt * speed) / 24);
         return next;
       });
       id = requestAnimationFrame(tick);
@@ -159,9 +163,11 @@ export default function App() {
   }, [playing, speed]);
   useEffect(() => {
     if (progress >= 1) setPlaying(false);
-    if (topic === "volume" && playing) setSection(progress);
-  }, [progress, topic, playing]);
+    if (topic === "volume" && (playing || moving)) setSection(sectionAt(progress));
+  }, [progress, topic, playing, moving]);
   function select(t: Topic) {
+    cancelAnimationFrame(transition.current);
+    setMoving(false);
     setTopic(t);
     setProgress(0);
     setPlaying(false);
@@ -170,11 +176,30 @@ export default function App() {
     setOverlap(false);
     setCut(t === "volume");
     setCameraKey((k) => k + 1);
+    setSection(0.5);
   }
-  function seek(v: number) {
-    setProgress(Math.max(0, Math.min(1, v)));
+  function seek(v: number, animate = true) {
+    cancelAnimationFrame(transition.current);
     setPlaying(false);
-    if (topic === "volume") setSection(Math.max(0, Math.min(1, v)));
+    const target = Math.max(0, Math.min(1, v));
+    if (!animate) {
+      setMoving(false);
+      setProgress(target);
+      if (topic === "volume") setSection(sectionAt(target));
+      return;
+    }
+    const start = performance.now(), from = progress;
+    const duration = Math.max(800, Math.abs(target - from) * 12000) / speed;
+    setMoving(true);
+    function tick(now: number) {
+      const t = Math.min(1, (now - start) / duration);
+      const value = from + (target - from) * smooth(t);
+      setProgress(value);
+      if (topic === "volume") setSection(sectionAt(value));
+      if (t < 1) transition.current = requestAnimationFrame(tick);
+      else setMoving(false);
+    }
+    transition.current = requestAnimationFrame(tick);
   }
   async function full() {
     try {
@@ -262,7 +287,7 @@ export default function App() {
               <span className="eyebrow">INTERACTIVE 3D</span>
               <h2>
                 입체도형 탐구{" "}
-                <span className="quiet">직접 움직이며 발견해 보세요</span>
+                <span className="quiet">교사 시연 · 단계별 애니메이션</span>
               </h2>
             </div>
             <button
@@ -358,7 +383,7 @@ export default function App() {
             <Info size={16} />
             <span>
               {topic === "cone"
-                ? "물을 옮겨 담으며 두 도형의 부피 관계를 직관적으로 확인합니다."
+                ? "이동 경로를 표시한 체적 모형입니다. 실제 유체 운동이나 부피 관계의 증명은 아닙니다."
                 : topic === "area"
                   ? "등면적 대응입니다. 구의 표면을 왜곡 없이 펼친 실제 전개도가 아닙니다."
                   : "같은 높이에서 반구의 단면 넓이는 원기둥 − 원뿔의 단면 넓이와 같습니다."}
@@ -416,6 +441,8 @@ export default function App() {
                       max={1}
                       step={0.01}
                       onChange={(v) => {
+                        cancelAnimationFrame(transition.current);
+                        setMoving(false);
                         setSection(v);
                         setPlaying(false);
                       }}
@@ -478,6 +505,14 @@ export default function App() {
             )}
           </div>
           <div className="animation">
+            <div className="demonstration-caption">
+              <span>{moving || playing ? "시연 중" : "설명하며 멈추기"} · {current.steps[stage]}</span>
+              <strong>{topic === "cone"
+                ? `원기둥 채움 ${(pourState(progress).filled * 100).toFixed(0)}% · 원뿔 ${(pourState(progress).filled * 3).toFixed(1)}개 분량`
+                : topic === "area"
+                  ? progress < 1 / 3 ? "구면 띠 → 같은 높이의 원기둥 띠" : progress <= 2 / 3 ? "원기둥 띠를 열어 직사각형으로" : "가로 2πR × 세로 2R · 원 4개 넓이와 비교"
+                  : progress > 2 / 3 ? "같은 반구 두 개를 합쳐 구로" : "같은 높이에서 파란 단면 = 원기둥 단면 − 원뿔 단면"}</strong>
+            </div>
             <div className="steps">
               {current.steps.map((s, i) => (
                 <button
@@ -508,16 +543,19 @@ export default function App() {
               <button
                 className="play-button"
                 onClick={() => {
+                  cancelAnimationFrame(transition.current);
+                  setMoving(false);
+                  if (moving) return;
                   if (progress >= 1) setProgress(0);
                   setPlaying(!playing);
                 }}
               >
-                {playing ? (
+                {playing || moving ? (
                   <Pause size={18} />
                 ) : (
                   <Play size={18} fill="currentColor" />
                 )}
-                {playing ? "일시정지" : "재생"}
+                {playing || moving ? "일시정지" : "전체 시연"}
               </button>
               <button
                 className="icon-button"
@@ -533,7 +571,7 @@ export default function App() {
                 max="1"
                 step="0.001"
                 value={progress}
-                onChange={(e) => seek(+e.target.value)}
+                onChange={(e) => seek(+e.target.value, false)}
               />
               <span className="progress-text">
                 {Math.round(progress * 100)}%
